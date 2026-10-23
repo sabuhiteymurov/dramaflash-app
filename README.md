@@ -68,7 +68,7 @@ In my first week I'd build the feed twice, once on expo-video and once on the Br
 
 ## How I built it
 
-Expo SDK 58, React Native 0.88 (New Architecture), TypeScript, Expo Router and expo-video. I used Claude Code to move faster. A Playwright script clicks through the whole flow on the production build after every change, and it also recorded the demo video. The episodes are nine-second clips I rendered from your key art.
+Expo SDK 58, React Native 0.88 (New Architecture), TypeScript, Expo Router and expo-video. I used Claude Code to move faster. A Playwright script clicks through the whole flow on the production build after every change. The episodes are nine-second clips I rendered from your key art.
 
 ```bash
 npm install
