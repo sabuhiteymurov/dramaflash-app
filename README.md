@@ -74,11 +74,7 @@ Payments, the ad, login and the CMS. Prices and coin amounts follow the design. 
 
 ## How it was built
 
-I built it in one session with Claude Code:
-- I planned the screens and the order to build them in.
-- Claude Code wrote most of the code.
-- I reviewed the diffs.
-- A Playwright script clicked through the whole unlock flow after every build. That's how the demo video was recorded, and how it caught two bugs early: a black frame after an unlock, and the feed losing its scroll position behind a full-screen modal on web.
+I wrote it in one session and used Claude Code to speed the work up, which is how I build day to day. A Playwright script clicked through the whole unlock flow after every build. That's how the demo video was recorded, and it caught two bugs early: a black frame after an unlock, and the feed losing its scroll position behind a full-screen modal on web.
 
 ## Run it
 
