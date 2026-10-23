@@ -4,7 +4,7 @@ Round 2 task (Option A) for the TargetVideo Mobile App Developer role. Built fro
 
 **Try it:** https://sabuhiteymurov.github.io/dramaflash-prototype/ (works best in a phone-sized window or on a phone)
 
-**Demo video (66 s):** [docs/demo.mp4](docs/demo.mp4)
+**Demo video (69 s):** [docs/demo.mp4](docs/demo.mp4)
 
 ![Home, player, cliffhanger, unlock sheet, coin store, rewarded ad](docs/overview.jpg)
 
