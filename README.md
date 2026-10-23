@@ -1,88 +1,88 @@
-# DramaFlash beta: clickable prototype
+# DramaFlash beta prototype
 
-Round 2 task (Option A) for the TargetVideo Mobile App Developer role. Built from the screen design you sent, in React Native with Expo.
+Round 2, Option A, for the TargetVideo Mobile App Developer role. Built in React Native from the screen design you sent.
 
-**Try it:** https://sabuhiteymurov.github.io/dramaflash-prototype/ (works best in a phone-sized window or on a phone)
+**Live:** https://sabuhiteymurov.github.io/dramaflash-prototype/ (best in a phone-sized window)
+**Demo video:** https://sabuhiteymurov.github.io/dramaflash-prototype/demo.mp4
 
-**Demo video (69 s):** [docs/demo.mp4](docs/demo.mp4)
+![Home, player, cliffhanger, unlock sheet, coin store, auto-unlock with undo](docs/overview.jpg)
 
-![Home, player, cliffhanger, unlock sheet, coin store, rewarded ad](docs/overview.jpg)
+## What to try
 
-## What to click
+1. Open *The Billionaire's Secret* and press *Play Ep 1*. Episodes 1 to 3 play back to back.
+2. Episode 3 ends on a cliffhanger. Episode 4 is locked and the unlock sheet opens over it.
+3. Unlock with a short ad (5 a day) or with coins. You start with 100 coins and an episode costs 60. The second unlock sends you to the coin store.
+4. Switch on auto-unlock in the sheet. The next locked episode then unlocks by itself and shows an Undo.
+5. *Profile → Event log* lists what the app would send to analytics. The pill under the episode counter shows how fast each episode started.
 
-1. **Home.** Spotlight hero, genre chips and poster rows, as in the design.
-2. **Series page.** Open any poster, for example *The Billionaire's Secret*. It shows the synopsis, cast, and episode list with lock badges.
-3. **Player.** Press *Play Ep 1*. It's a vertical feed: swipe or scroll to change episodes, tap to pause.
-   - Episodes 1 to 3 are free and play one after another.
-   - When episode 3 ends on its cliffhanger, the feed moves to episode 4. Episode 4 is locked, so the unlock sheet opens on top of it.
-4. **Unlock**, three ways:
-   - **Coins.** You start with 15 coins, which is enough for one episode at 10.
-   - **Coin store.** Try the next locked episode. The sheet sends you to the store, you buy a pack (simulated), come back and unlock.
-   - **Rewarded ad.** Pick *Watch a short ad*. After a 5 second countdown the episode unlocks.
+## Three decisions
 
-After any unlock you land back in the feed and the episode starts playing. *Profile → Reset prototype* puts coins and unlocks back to the start.
+### 1. The ad is the default way to unlock
 
-## Choices I made
+TargetVideo's business is video advertising, and this market is moving toward ads. In China, free ad-supported viewing passed half of the micro-drama market by December 2024 [1]. The sheet opens with *Watch a short ad* already selected. Coins are the fast lane for people who don't want to wait.
 
-**Stack.**
-- Expo SDK 58, React Native 0.88 (New Architecture), TypeScript and Expo Router. It's the same setup I shipped two apps on at Nool.
-- Routes are files. The unlock sheet and the rewarded ad are transparent modals over the player. The player stays mounted underneath, so the feed keeps its position and the next episode is already buffered when the sheet closes.
+Ad unlocks are capped at 5 a day. Without a cap, coins would have no reason to exist. In production the server owns the cap and the grant, and it unlocks only after the ad network's reward callback arrives.
 
-**Playback** (`src/components/EpisodePage.tsx`, `src/app/player/[id].tsx`).
-- It's a paged vertical `FlatList`, with one `expo-video` player per page.
-- Only the visible page and its two neighbours get a source. The next episode buffers while the current one plays, so a swipe starts without a spinner.
-- Locked pages never get a source, so they cost no bandwidth or decoder.
-- A poster frame covers each page until the first video frame renders, so the screen is never black.
-- On web the app picks VP9 WebM when the browser can decode it, and H.264 MP4 otherwise. Native builds use MP4.
+### 2. Trust is part of the product
 
-**Cliffhanger and paywall placement.**
-- The paywall appears at the moment of highest intent: right after the cliffhanger, with the locked episode already on screen behind the sheet.
-- The free option (a rewarded ad) is listed first. The paid options follow:
-  - single episode,
-  - season marked *Best value*,
-  - Premium.
+These apps win and lose users over money. ReelShort has 4.7 stars on the US App Store and 1.6 on Trustpilot [2]. The complaints there are weekly renewals, coin prices that change, and coins spent without asking. I designed against each one.
 
-  A viewer who won't pay today still moves on to the next episode, and that's who would otherwise close the app.
+- Every coin price shows its euro value. The EU consumer authorities asked for exactly that for virtual currencies in March 2025 [3].
+- The store says how many episodes each pack buys.
+- Auto-unlock is off by default. When it's on, every automatic unlock comes with Undo.
+- Premium says "renews every week" next to the price, not in the fine print.
 
-**Entitlements** (`src/store/wallet.tsx`). In this prototype a React context holds coins and unlocks. In production the server owns entitlements:
-- **Purchases.** The app sends the App Store or Play receipt, the backend validates it (or RevenueCat does), and only then are coins credited.
-- **Rewarded ads.** The unlock comes from the ad network's server-side reward callback, not from a client timer, so it can't be faked.
+An episode costs 60 coins, about €0.60, close to ReelShort's 60 coins [4]. The rest of a season is about a third cheaper than buying it episode by episode.
 
-**Content.**
-- Posters, cast photos and key art come from your design file.
-- The four episode clips are 9-second vertical videos I rendered from the key art with ffmpeg.
-- Subtitles are data in `src/data/catalog.ts`, which stands in for the CMS.
+### 3. The feed runs on three players
 
-## What is mocked
+A drama has 50 to 100 episodes. One player per episode would grow memory and decoder use with every swipe, and some Android phones give an app a single hardware decoder. The feed owns three players instead. Page *i* borrows player *i % 3*. The previous, current and next episodes each have one. The next episode buffers while you watch. Locked episodes get none.
 
-Payments, the ad, login and the CMS. Prices and coin amounts follow the design. *Discover*, *Library* and *Profile* are thin screens so that the tab bar works.
+The active page only changes once a page is 80% on screen, never halfway through a swipe. The pill under the counter shows the time from the end of a swipe to playback, and whether that episode was preloaded. That is the first number I'd put on a dashboard.
 
-## What I would build next
+## Your player SDK
 
-1. **Playback layer decision.** Prototype `expo-video` against `react-native-video` and your own player wrapped as a native module (Swift/Kotlin). Measure time to first frame and swipe-to-play on a low-end Android phone. HLS with a short first segment, and preload only that segment for the next episode.
-2. **Analytics before features.** The events I'd send from day one:
-   - `episode_start`, `episode_complete`
-   - `paywall_view` (episode, trigger: cliffhanger or tap)
-   - `unlock_option_selected`, `unlock_success` (method)
-   - `coin_purchase`, `ad_reward_granted`
-3. **What I'd watch:**
-   - Paywall-to-unlock conversion by method.
-   - The share of viewers who start the next episode within 10 seconds of a cliffhanger.
-   - Whether free ad unlocks cut into coin revenue.
-   - D1 and D7 retention.
-4. **Real money.** StoreKit 2 and Play Billing through RevenueCat, with a server webhook and Google IMA for the rewarded ads.
+I read `TargetVideo/react-native-bridtv-sdk-module`. Issue #68, opened on 15 October, describes three problems on iOS with the New Architecture.
 
-## How it was built
+- The player reads its settings too late.
+- Some state is shared between player instances.
+- Every component receives every player's events.
 
-I wrote it in one session and used Claude Code to speed the work up, which is how I build day to day. A Playwright script clicked through the whole unlock flow after every build. That's how the demo video was recorded, and it caught two bugs early: a black frame after an unlock, and the feed losing its scroll position behind a full-screen modal on web.
+One player per screen won't notice. A swipe feed needs three at once.
 
-## Run it
+In my first week I'd build the feed twice, once on expo-video and once on the Brid SDK. I'd measure time to playback and memory on a cheap Android phone. If Brid wins, I'd make its state per-instance first.
+
+## What I'd measure
+
+- Time from swipe to playback, p50 and p90, split into preloaded and cold. Rebuffer percentage.
+- Paywall views that end in an unlock, by method (ad, coins, season, Premium) and by trigger (cliffhanger or tap).
+- The share of viewers who start the next episode within 10 seconds of a cliffhanger.
+- Whether free ad unlocks cut coin revenue. The daily cap is the variable to test.
+- D1 and D7 retention. The top 200 short-drama apps average 26.9% and 8.6% [5].
+
+## What I left out on purpose
+
+- **Not built:** login, real payments, a real ad SDK, a CMS and audio.
+- **Free episodes:** 3 instead of the usual 9 or so [4]. You reach the paywall within a minute.
+- **Entitlements:** coins and unlocks live in memory. In production the server owns them and the app only displays them.
+
+## How I built it
+
+Expo SDK 58, React Native 0.88 (New Architecture), TypeScript, Expo Router and expo-video. I used Claude Code to move faster. A Playwright script clicks through the whole flow on the production build after every change, and it also recorded the demo video. The episodes are nine-second clips I rendered from your key art.
 
 ```bash
 npm install
-npx expo start          # press w for web, or scan with a development build
+npx expo start          # w for web
 npm run typecheck
-npm run export:web      # static build in dist/, as deployed to GitHub Pages
+npm run export:web      # static build in dist/, as deployed
 ```
+
+## Sources
+
+1. Caixin, 22 Aug 2025. https://www.caixinglobal.com/2025-08-22/in-depth-micro-drama-platforms-knock-down-paywalls-as-viewers-lose-interest-102354440.html
+2. Trustpilot and the US App Store, as compared by Filmustage, 2026. https://filmustage.com/blog/short-drama-apps-compared-reelshort-vs-dramabox-in-2026/
+3. CPC Network, Key principles on in-game virtual currencies, 21 Mar 2025. https://commission.europa.eu/document/download/8af13e88-6540-436c-b137-9853e7fe866a_en
+4. ReelShort coin guide (https://www.reelshort.com/fandom/reelshort-coins-01-25-3faa2218/) and GASP, cost to finish a short drama (https://geekvibesnation.com/cost-to-finish-short-drama).
+5. Sensor Tower, quoted by adjoe. https://adjoe.io/blog/short-drama-apps-rewarded-engagement/
 
 Sabuhi Teymurov · hello@sabuhiteymurov.com
