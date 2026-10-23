@@ -1,72 +1,35 @@
 import { Feather } from '@expo/vector-icons';
-import { useEvent, useEventListener } from 'expo';
+import { useEventListener } from 'expo';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { VideoView, type VideoPlayer } from 'expo-video';
 import { memo, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Episode, Series } from '../data/catalog';
 import { colors, fonts } from '../theme';
 import { PrimaryButton, Serif } from './ui';
 
-// The clips are nine seconds; from here on the frame belongs to the cliffhanger card.
 const CLIFFHANGER_AT = 7;
 
 type Props = {
   series: Series;
   episode: Episode;
-  total: number;
   height: number;
+  player: VideoPlayer | null;
   active: boolean;
-  preload: boolean;
+  playing: boolean;
+  paused: boolean;
   locked: boolean;
   nextLocked: boolean;
-  onEnded: () => void;
-  onUnlock: () => void;
+  onTogglePause: () => void;
+  onUnlock: (episodeNumber: number) => void;
 };
 
-function EpisodePageImpl({ series, episode, height, active, preload, locked, nextLocked, onEnded, onUnlock }: Props) {
-  const [time, setTime] = useState(0);
-  const [paused, setPaused] = useState(false);
+function EpisodePageImpl({ series, episode, height, player, active, playing, paused, locked, nextLocked, onTogglePause, onUnlock }: Props) {
   const [liked, setLiked] = useState(false);
+  const [firstFrame, setFirstFrame] = useState(false);
 
-  // A locked or far-away page never gets a source, so it costs no network or decoder.
-  const player = useVideoPlayer(preload && !locked ? episode.video : null, (p) => {
-    p.muted = true; // the clips carry no audio, and browsers only autoplay muted video
-    p.timeUpdateEventInterval = 0.25;
-  });
-
-  const { status } = useEvent(player, 'statusChange', { status: player.status });
-  const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
-
-  // Re-run when the source finishes loading: a play() issued while a fresh source is still
-  // loading (right after an unlock) is dropped by the browser.
-  useEffect(() => {
-    if (active && !locked && !paused) {
-      if (player.duration > 0 && player.currentTime >= player.duration - 0.2) player.currentTime = 0;
-      player.play();
-    } else {
-      player.pause();
-    }
-  }, [active, locked, paused, player, status]);
-
-  useEffect(() => {
-    if (!active) {
-      setPaused(false);
-      setTime(0);
-    }
-  }, [active]);
-
-  useEventListener(player, 'timeUpdate', ({ currentTime }) => {
-    if (active) setTime(currentTime);
-  });
-  useEventListener(player, 'playToEnd', () => {
-    if (active) onEnded();
-  });
-
-  const line = episode.subtitles.find((l) => time >= l.from && time <= l.to);
-  const progress = player.duration > 0 ? Math.min(time / player.duration, 1) : 0;
-  const cliffhanger = active && time >= CLIFFHANGER_AT;
+  useEffect(() => setFirstFrame(false), [player]);
 
   return (
     <View style={{ height, backgroundColor: '#000' }}>
@@ -77,7 +40,7 @@ function EpisodePageImpl({ series, episode, height, active, preload, locked, nex
           <View style={styles.lockWrap}>
             <Text style={styles.lockKicker}>EPISODE {episode.number}</Text>
             <Serif style={styles.lockTitle}>Find out what happens next</Serif>
-            <Pressable onPress={onUnlock} style={({ pressed }) => [styles.lockCard, pressed && { opacity: 0.85 }]}>
+            <Pressable onPress={() => onUnlock(episode.number)} style={({ pressed }) => [styles.lockCard, pressed && { opacity: 0.85 }]}>
               <View style={styles.lockIcon}>
                 <Feather name="lock" size={26} color={colors.text} />
                 <View style={styles.lockCoin} />
@@ -87,10 +50,18 @@ function EpisodePageImpl({ series, episode, height, active, preload, locked, nex
           </View>
         </>
       ) : (
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => setPaused((p) => !p)}>
-          <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} playsInline />
-          {/* Poster frame until the first decoded frame, so a page is never black while it buffers. */}
-          {!isPlaying && time === 0 && <Image source={episode.thumb} style={StyleSheet.absoluteFill} contentFit="cover" />}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onTogglePause}>
+          {player && (
+            <VideoView
+              player={player}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              nativeControls={false}
+              playsInline
+              onFirstFrameRender={() => setFirstFrame(true)}
+            />
+          )}
+          {!firstFrame && !playing && <Image source={episode.thumb} style={StyleSheet.absoluteFill} contentFit="cover" />}
           {paused && (
             <View style={styles.center} pointerEvents="none">
               <View style={styles.pauseIcon}>
@@ -103,20 +74,7 @@ function EpisodePageImpl({ series, episode, height, active, preload, locked, nex
 
       <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={styles.bottomShade} pointerEvents="none" />
 
-      {line && !cliffhanger && !locked && (
-        <View style={styles.subtitleWrap} pointerEvents="none">
-          <Text style={styles.subtitle}>{line.text}</Text>
-        </View>
-      )}
-
-      {cliffhanger && !locked && (
-        <View style={styles.center} pointerEvents="none">
-          <Serif style={styles.tbc}>To be continued…</Serif>
-          <Text style={styles.tbcNext}>
-            {nextLocked ? `🔒 Episode ${episode.number + 1} is locked` : `Episode ${episode.number + 1} starts next`}
-          </Text>
-        </View>
-      )}
+      {active && player && !locked && <PlaybackOverlay player={player} episode={episode} nextLocked={nextLocked} />}
 
       <View style={styles.rail}>
         <Pressable style={styles.railItem} onPress={() => setLiked((l) => !l)}>
@@ -139,28 +97,62 @@ function EpisodePageImpl({ series, episode, height, active, preload, locked, nex
           <Text style={styles.epTag}>Ep {episode.number}</Text>
           <Text style={styles.infoText}>• {episode.title}</Text>
         </View>
-        {locked && <PrimaryButton label="Unlock" icon="unlock" onPress={onUnlock} style={{ alignSelf: 'flex-start', height: 42, marginTop: 12 }} />}
+        {locked && (
+          <PrimaryButton
+            label="Unlock"
+            icon="unlock"
+            onPress={() => onUnlock(episode.number)}
+            style={{ alignSelf: 'flex-start', height: 42, marginTop: 12 }}
+          />
+        )}
       </View>
-
-      {!locked && (
-        <View style={styles.progressTrack} pointerEvents="none">
-          <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-        </View>
-      )}
     </View>
   );
 }
 
 export const EpisodePage = memo(EpisodePageImpl);
 
+function PlaybackOverlay({ player, episode, nextLocked }: { player: VideoPlayer; episode: Episode; nextLocked: boolean }) {
+  const [time, setTime] = useState(player.currentTime);
+  useEventListener(player, 'timeUpdate', ({ currentTime }) => setTime(currentTime));
+
+  const line = episode.subtitles.find((l) => time >= l.from && time <= l.to);
+  const progress = player.duration > 0 ? Math.min(time / player.duration, 1) : 0;
+  const cliffhanger = time >= CLIFFHANGER_AT;
+
+  return (
+    <>
+      {line && !cliffhanger && (
+        <View style={styles.subtitleWrap} pointerEvents="none">
+          <Text style={styles.subtitle}>{line.text}</Text>
+        </View>
+      )}
+      {cliffhanger && (
+        <View style={styles.center} pointerEvents="none">
+          <Serif style={styles.tbc}>To be continued…</Serif>
+          <Text style={styles.tbcNext}>
+            {nextLocked ? `🔒 Episode ${episode.number + 1} is locked` : `Episode ${episode.number + 1} starts next`}
+          </Text>
+        </View>
+      )}
+      <View style={styles.progressTrack} pointerEvents="none">
+        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+      </View>
+    </>
+  );
+}
+
+const fill = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
+
 const styles = StyleSheet.create({
-  center: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  center: { ...fill, alignItems: 'center', justifyContent: 'center' },
   pauseIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   bottomShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 260 },
   subtitleWrap: { position: 'absolute', left: 24, right: 72, bottom: 190, alignItems: 'center' },
   subtitle: {
     fontFamily: fonts.semibold,
     fontSize: 17,
+    lineHeight: 24,
     color: '#fff',
     textAlign: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -171,7 +163,7 @@ const styles = StyleSheet.create({
   },
   tbc: { fontSize: 32, color: colors.accent, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 12 },
   tbcNext: { fontFamily: fonts.medium, fontSize: 14, color: colors.text, marginTop: 10 },
-  lockWrap: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  lockWrap: { ...fill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   lockKicker: { fontFamily: fonts.semibold, color: colors.accent, letterSpacing: 2, fontSize: 12 },
   lockTitle: { fontSize: 24, textAlign: 'center', marginTop: 6, marginBottom: 22 },
   lockCard: {
@@ -196,6 +188,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     color: colors.text,
     fontSize: 12,
+    lineHeight: 16,
     backgroundColor: 'rgba(255,255,255,0.15)',
     paddingHorizontal: 6,
     paddingVertical: 2,

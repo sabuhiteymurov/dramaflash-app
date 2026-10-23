@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Body, IconCircle, PrimaryButton, Serif } from '../../components/ui';
-import { getEpisodes, getSeries, SEASON_PRICE } from '../../data/catalog';
+import { getEpisodes, getSeries, seasonPrice, toEuro } from '../../data/catalog';
 import { useWallet } from '../../store/wallet';
 import { colors, fonts } from '../../theme';
 
@@ -102,9 +102,9 @@ export default function SeriesDetail() {
             <LinearGradient colors={['#2A1840', '#1A1530']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.season}>
               <View>
                 <Serif style={{ fontSize: 16 }}>Unlock Full Season</Serif>
-                <Body style={{ fontSize: 12, marginTop: 2 }}>Save 40% with the bundle</Body>
+                <Body style={{ fontSize: 12, marginTop: 2 }}>About a third off single episodes</Body>
               </View>
-              <Text style={styles.seasonPrice}>{SEASON_PRICE} coins</Text>
+              <Text style={styles.seasonPrice}>{seasonPrice(s)} coins · {toEuro(seasonPrice(s))}</Text>
             </LinearGradient>
           </Pressable>
 

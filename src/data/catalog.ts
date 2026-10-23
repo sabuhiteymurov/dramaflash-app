@@ -1,5 +1,3 @@
-// Mock CMS. In the real app this comes from the TargetVideo CMS API; the shapes are what the
-// screens need, so swapping the source later only touches this module.
 import { Platform } from 'react-native';
 
 type ImageAsset = number;
@@ -36,12 +34,20 @@ export type Series = {
   cast: CastMember[];
 };
 
+// The market norm is about 9 of 55; 3 here so the paywall shows up within a minute.
 export const FREE_EPISODES = 3;
-export const EPISODE_PRICE = 10;
-export const SEASON_PRICE = 150;
 
-// H.264 MP4 plays everywhere native and in Safari. Chromium builds without proprietary codecs
-// (and some Android WebViews) only decode VP9, so the web build prefers WebM when it can.
+// 300 coins cost €2.99, so 60 coins per episode is about €0.60.
+export const COIN_VALUE_EUR = 0.01;
+export const EPISODE_PRICE = 60;
+export const SEASON_DISCOUNT = 0.33;
+
+export const toEuro = (coins: number) => `€${(coins * COIN_VALUE_EUR).toFixed(2)}`;
+
+export const seasonPrice = (s: Pick<Series, 'episodeCount'>) =>
+  Math.round(((s.episodeCount - FREE_EPISODES) * EPISODE_PRICE * (1 - SEASON_DISCOUNT)) / 10) * 10;
+
+// Chromium builds without proprietary codecs cannot play H.264, so web prefers VP9 when available.
 const webmSupported =
   Platform.OS === 'web' &&
   typeof document !== 'undefined' &&
@@ -79,7 +85,6 @@ const episodeTitles = [
   'Unmasking the Truth',
 ];
 
-// Each clip is nine seconds; the last two belong to the cliffhanger card.
 const scripts: SubtitleLine[][] = [
   [
     { from: 0.6, to: 3.4, text: 'Sign it. Tonight.' },

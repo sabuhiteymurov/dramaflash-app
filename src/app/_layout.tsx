@@ -27,7 +27,6 @@ export default function RootLayout() {
                 options={{ presentation: 'transparentModal', animation: 'fade', contentStyle: { backgroundColor: 'transparent' } }}
               />
               <Stack.Screen name="coins" options={{ presentation: 'modal' }} />
-              {/* Transparent modals keep the player mounted underneath, so the feed keeps its position. */}
               <Stack.Screen name="ad" options={{ presentation: 'transparentModal', animation: 'fade' }} />
             </Stack>
           </View>

@@ -4,14 +4,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { track } from '../analytics';
 import { Body, Serif } from '../components/ui';
 import { useWallet } from '../store/wallet';
 import { colors, fonts } from '../theme';
 
 const AD_SECONDS = 5;
 
-// Stand-in for a rewarded ad. With a real SDK (Google IMA / the TargetVideo ad server) the grant
-// comes from the server-side reward callback, not from this timer, so the reward cannot be faked.
+// In production the unlock is granted by the ad network's server-side reward callback, not this timer.
 export default function RewardedAd() {
   const { seriesId, ep } = useLocalSearchParams<{ seriesId: string; ep: string }>();
   const insets = useSafeAreaInsets();
@@ -25,7 +25,10 @@ export default function RewardedAd() {
   }, [left]);
 
   const claim = () => {
-    unlockWithAd(seriesId, Number(ep));
+    if (unlockWithAd(seriesId, Number(ep))) {
+      track('ad_reward_granted', { series: seriesId, episode: Number(ep) });
+      track('unlock_success', { series: seriesId, episode: Number(ep), method: 'ad' });
+    }
     router.back();
   };
 

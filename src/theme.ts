@@ -20,5 +20,4 @@ export const fonts = {
   semibold: 'Inter_600SemiBold',
 };
 
-// The web build renders inside a phone-width column so it reads like the app on a desktop.
 export const MAX_APP_WIDTH = 430;

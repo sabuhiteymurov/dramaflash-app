@@ -3,8 +3,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { track } from '../analytics';
 import { Body, Serif } from '../components/ui';
-import { coinPacks } from '../data/catalog';
+import { coinPacks, EPISODE_PRICE } from '../data/catalog';
 import { useWallet } from '../store/wallet';
 import { colors, fonts } from '../theme';
 
@@ -17,13 +18,17 @@ export default function CoinStore() {
 
   const pack = coinPacks.find((p) => p.id === selected);
 
-  // Stand-in for the StoreKit / Play Billing sheet. The real flow sends the receipt to the
-  // backend for validation and only then credits coins, so a crash mid-purchase cannot lose them.
+  // In production coins are credited only after the backend validates the store receipt.
   const buy = () => {
     setBuying(true);
     setTimeout(() => {
-      if (pack) wallet.addCoins(pack.coins + pack.bonus);
-      else wallet.subscribe();
+      if (pack) {
+        wallet.addCoins(pack.coins + pack.bonus);
+        track('coin_purchase', { pack: pack.id, coins: pack.coins + pack.bonus, price: pack.price });
+      } else {
+        wallet.subscribe();
+        track('coin_purchase', { pack: 'vip_weekly', price: '€4.99' });
+      }
       setBuying(false);
       router.back();
     }, 900);
@@ -57,6 +62,7 @@ export default function CoinStore() {
                 <Feather name="zap" size={26} color={colors.accent} />
                 <Serif style={{ fontSize: 26, marginTop: 6 }}>{p.coins}</Serif>
                 <Text style={styles.bonus}>{p.bonus ? `+ ${p.bonus} Bonus` : ' '}</Text>
+                <Text style={styles.episodes}>≈ {Math.floor((p.coins + p.bonus) / EPISODE_PRICE)} episodes</Text>
                 <View style={[styles.price, active && { backgroundColor: colors.accent }]}>
                   <Text style={[styles.priceText, active && { color: colors.accentInk }]}>{p.price}</Text>
                 </View>
@@ -77,7 +83,7 @@ export default function CoinStore() {
           </View>
           <View style={{ flex: 1 }}>
             <Serif style={{ fontSize: 17 }}>VIP Membership</Serif>
-            <Body style={{ fontSize: 12 }}>All episodes • No ads</Body>
+            <Body style={{ fontSize: 12 }}>Every episode • No ads • Renews weekly</Body>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.vipPrice}>€4.99</Text>
@@ -105,7 +111,7 @@ export default function CoinStore() {
             </>
           )}
         </Pressable>
-        <Text style={styles.legal}>Prototype. No real payment is made. Subscriptions auto-renew unless canceled.</Text>
+        <Text style={styles.legal}>Prototype, no real payment. Premium renews every week until you cancel it in your App Store settings.</Text>
       </View>
     </View>
   );
@@ -151,7 +157,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     paddingVertical: 2,
   },
-  bonus: { fontFamily: fonts.medium, color: colors.accent, fontSize: 12, marginTop: 2, marginBottom: 12 },
+  bonus: { fontFamily: fonts.medium, color: colors.accent, fontSize: 12, marginTop: 2 },
+  episodes: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 11, marginTop: 2, marginBottom: 10 },
   price: { backgroundColor: '#000', borderRadius: 10, paddingVertical: 8, width: '80%', alignItems: 'center' },
   priceText: { fontFamily: fonts.semibold, color: colors.text },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 20 },
