@@ -6,12 +6,19 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type TextProps, type
 import type { Series } from '../data/catalog';
 import { colors, fonts } from '../theme';
 
+// Playfair and Inter have deep descenders. Without an explicit line height the browser crops
+// the bottom of letters like g and y when a Text clips (numberOfLines, fixed-height rows).
+const withLineHeight = (style: TextProps['style'], fallbackSize: number, ratio: number) => {
+  const flat = StyleSheet.flatten(style) ?? {};
+  return flat.lineHeight ? null : { lineHeight: Math.round((flat.fontSize ?? fallbackSize) * ratio) };
+};
+
 export function Serif({ style, ...props }: TextProps) {
-  return <Text {...props} style={[{ fontFamily: fonts.serif, color: colors.text }, style]} />;
+  return <Text {...props} style={[{ fontFamily: fonts.serif, color: colors.text, fontSize: 14 }, style, withLineHeight(style, 14, 1.3)]} />;
 }
 
 export function Body({ style, ...props }: TextProps) {
-  return <Text {...props} style={[{ fontFamily: fonts.regular, color: colors.textMuted, fontSize: 14 }, style]} />;
+  return <Text {...props} style={[{ fontFamily: fonts.regular, color: colors.textMuted, fontSize: 14 }, style, withLineHeight(style, 14, 1.4)]} />;
 }
 
 export function PrimaryButton({
