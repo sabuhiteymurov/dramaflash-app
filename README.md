@@ -3,7 +3,7 @@
 Round 2, Option A, for the TargetVideo Mobile App Developer role. Built in React Native from the screen design you sent.
 
 **Live:** https://sabuhiteymurov.github.io/dramaflash-prototype/ (best in a phone-sized window)
-**Demo video:** https://sabuhiteymurov.github.io/dramaflash-prototype/demo.mp4
+**Demo video (iPhone simulator, 101 s):** https://sabuhiteymurov.github.io/dramaflash-prototype/demo.mp4
 
 ![Home, player, cliffhanger, unlock sheet, coin store, auto-unlock with undo](docs/overview.jpg)
 
