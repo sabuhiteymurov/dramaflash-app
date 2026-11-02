@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, type VideoPlayer } from 'expo-video';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type ListViewToken } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { track } from '../../analytics';
@@ -18,6 +18,14 @@ const setupPlayer = (p: VideoPlayer) => {
   p.muted = true; // the sample clips carry no audio, and browsers only autoplay muted video
   p.timeUpdateEventInterval = 0.25;
 };
+
+// Outside the component: the hooks linter treats players as immutable React values,
+// but they are native objects configured by assignment.
+const setForwardBuffer = (p: VideoPlayer, seconds: number) => {
+  p.bufferOptions = { preferredForwardBufferDuration: seconds, waitsToMinimizeStalling: true };
+};
+
+const VIEWABILITY = { itemVisiblePercentThreshold: 80 };
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
@@ -49,7 +57,10 @@ export default function Player() {
 
   const listRef = useRef<FlatList<Episode>>(null);
   const activeRef = useRef(active);
-  activeRef.current = active;
+  // Synced before paint, so player events never compare against the previous episode.
+  useLayoutEffect(() => {
+    activeRef.current = active;
+  }, [active]);
   const loadedRef = useRef(loaded);
   // Read by the auto-unlock effect, which must run only when the active episode changes.
   const walletRef = useRef(wallet);
@@ -61,6 +72,14 @@ export default function Player() {
   const focusedRef = useRef(true);
   const settle = useRef({ at: now(), preloaded: false, measured: false });
 
+  // Reset during render when the episode changes, instead of an extra render from an effect.
+  const [prevActive, setPrevActive] = useState(active);
+  if (prevActive !== active) {
+    setPrevActive(active);
+    setPaused(false);
+    setActivePlaying(false);
+  }
+
   useEffect(() => {
     const slot = active % POOL_SIZE;
     settle.current = {
@@ -68,8 +87,6 @@ export default function Player() {
       preloaded: loadedRef.current[slot] === active && pool[slot].status === 'readyToPlay',
       measured: false,
     };
-    setPaused(false);
-    setActivePlaying(false);
   }, [active, pool]);
 
   useEffect(() => {
@@ -82,9 +99,7 @@ export default function Player() {
         void pool[slot].replaceAsync(episodes[i].video);
         if (i === active) settle.current = { at: now(), preloaded: false, measured: false };
       }
-      if (Platform.OS !== 'web') {
-        pool[slot].bufferOptions = { preferredForwardBufferDuration: i === active ? 20 : 4, waitsToMinimizeStalling: true };
-      }
+      if (Platform.OS !== 'web') setForwardBuffer(pool[slot], i === active ? 20 : 4);
     }
     loadedRef.current = next;
     setLoaded(next);
@@ -178,12 +193,12 @@ export default function Player() {
     if (activeUnlocked) setLastWatched({ seriesId: series.id, episode: activeEpisode.number });
   }, [activeEpisode.number, activeUnlocked, series.id, setLastWatched]);
 
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 80 }).current;
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
+  // No dependencies: FlatList does not allow this callback to change after mount.
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     const first = viewableItems[0];
     if (!focusedRef.current || first?.index == null) return;
     setActive(first.index);
-  }).current;
+  }, []);
 
   // On web a covered screen can lose its scroll offset.
   useFocusEffect(
@@ -216,7 +231,7 @@ export default function Player() {
           windowSize={3}
           initialNumToRender={2}
           maxToRenderPerBatch={2}
-          viewabilityConfig={viewabilityConfig}
+          viewabilityConfig={VIEWABILITY}
           onViewableItemsChanged={onViewableItemsChanged}
           extraData={loaded}
           renderItem={({ item, index }) => {

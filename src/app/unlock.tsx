@@ -1,7 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { track } from '../analytics';
 import { Body, PrimaryButton, Serif } from '../components/ui';
@@ -24,8 +24,12 @@ export default function UnlockSheet() {
   const price = plan === 'episode' ? EPISODE_PRICE : plan === 'season' ? season : 0;
   const short = price > wallet.coins;
 
-  useEffect(() => {
+  // Once per opening, with the balance at that moment.
+  const trackPaywallView = useEffectEvent(() => {
     track('paywall_view', { series: series.id, episode: episodeNumber, trigger: params.trigger ?? 'tap', coins: wallet.coins });
+  });
+  useEffect(() => {
+    trackPaywallView();
   }, []);
 
   useEffect(() => {

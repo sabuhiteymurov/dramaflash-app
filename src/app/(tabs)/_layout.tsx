@@ -4,9 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ColorValue } from 'react-native';
 import { colors, fonts } from '../../theme';
 
-const icon =
-  (name: keyof typeof Feather.glyphMap) =>
-  ({ color }: { color: ColorValue }) => <Feather name={name} size={22} color={color as string} />;
+const icon = (name: keyof typeof Feather.glyphMap) =>
+  function TabIcon({ color }: { color: ColorValue }) {
+    return <Feather name={name} size={22} color={color as string} />;
+  };
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();

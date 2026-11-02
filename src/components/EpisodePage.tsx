@@ -3,7 +3,7 @@ import { useEventListener } from 'expo';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, type VideoPlayer } from 'expo-video';
-import { memo, useEffect, useState } from 'react';
+import { memo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Episode, Series } from '../data/catalog';
 import { colors, fonts } from '../theme';
@@ -29,7 +29,12 @@ function EpisodePageImpl({ series, episode, height, player, active, playing, pau
   const [liked, setLiked] = useState(false);
   const [firstFrame, setFirstFrame] = useState(false);
 
-  useEffect(() => setFirstFrame(false), [player]);
+  // A new player has not drawn a frame yet. Reset during render instead of in an effect.
+  const [prevPlayer, setPrevPlayer] = useState(player);
+  if (prevPlayer !== player) {
+    setPrevPlayer(player);
+    setFirstFrame(false);
+  }
 
   return (
     <View style={{ height, backgroundColor: '#000' }}>
