@@ -29,7 +29,8 @@
       "expo-router",
       "expo-video",
       "expo-image",
-      "expo-font"
+      "expo-font",
+      "expo-dev-client"
     ],
     "scheme": "dramaflash",
     "backgroundColor": "#05060A",

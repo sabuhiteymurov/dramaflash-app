@@ -72,7 +72,8 @@ Expo SDK 58, React Native 0.88 (New Architecture), TypeScript, Expo Router and e
 
 ```bash
 npm install
-npx expo start          # w for web
+npm run ios             # first run builds the dev client into the iOS simulator
+npx expo start          # later runs: JS-only changes, no rebuild (w for web)
 npm run typecheck
 npm run export:web      # static build in dist/, as deployed
 ```

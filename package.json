@@ -10,6 +10,7 @@
     "expo": "~58.0.17",
     "expo-blur": "~58.0.5",
     "expo-constants": "~58.0.13",
+    "expo-dev-client": "~58.0.18",
     "expo-font": "~58.0.9",
     "expo-image": "~58.0.16",
     "expo-linear-gradient": "~58.0.3",
@@ -26,15 +27,18 @@
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~58.0.4",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "export:web": "DEPLOY_BASE_URL=/dramaflash-prototype expo export -p web && cp dist/index.html dist/404.html && touch dist/.nojekyll"
+    "export:web": "DEPLOY_BASE_URL=/dramaflash-prototype expo export -p web && cp dist/index.html dist/404.html && touch dist/.nojekyll",
+    "lint": "expo lint"
   },
   "private": true
 }
