@@ -51,6 +51,13 @@ export default function Player() {
   const activeRef = useRef(active);
   activeRef.current = active;
   const loadedRef = useRef(loaded);
+  // Read by the auto-unlock effect, which must run only when the active episode changes.
+  const walletRef = useRef(wallet);
+  useEffect(() => {
+    walletRef.current = wallet;
+  });
+  // Each episode is auto-charged at most once, so an undone episode stays locked.
+  const autoChargedRef = useRef(new Set<number>());
   const focusedRef = useRef(true);
   const settle = useRef({ at: now(), preloaded: false, measured: false });
 
@@ -83,17 +90,32 @@ export default function Player() {
     setLoaded(next);
   }, [active, episodes, isUnlocked, pool, series.id]);
 
+  const activeEpisode = episodes[active];
+  const activeUnlocked = isUnlocked(series.id, activeEpisode.number);
+
   // Re-runs on readyToPlay: browsers drop a play() issued while the source is still loading.
   useEffect(() => {
     pool.forEach((p, slot) => {
-      if (loaded[slot] === active && !paused) {
+      if (loaded[slot] === active && !paused && activeUnlocked) {
         if (p.duration > 0 && p.currentTime >= p.duration - 0.2) p.currentTime = 0;
         p.play();
       } else {
         p.pause();
       }
     });
-  }, [active, loaded, paused, pool, readyTick]);
+  }, [active, activeUnlocked, loaded, paused, pool, readyTick]);
+
+  // Runs for swipes, auto-advance and deep links alike.
+  useEffect(() => {
+    const number = episodes[active].number;
+    const w = walletRef.current;
+    if (!w.autoUnlock || w.isUnlocked(series.id, number) || autoChargedRef.current.has(number)) return;
+    if (w.unlockWithCoins(series.id, number)) {
+      autoChargedRef.current.add(number);
+      track('unlock_success', { series: series.id, episode: number, method: 'auto_coins' });
+      setToast(number);
+    }
+  }, [active, episodes, series.id]);
 
   const openUnlock = useCallback(
     (episodeNumber: number, trigger: 'cliffhanger' | 'tap') =>
@@ -108,14 +130,12 @@ export default function Player() {
       listRef.current?.scrollToIndex({ index: index + 1, animated: true });
       setActive(index + 1);
       if (isUnlocked(series.id, next.number)) return;
-      if (wallet.autoUnlock && wallet.unlockWithCoins(series.id, next.number)) {
-        track('unlock_success', { series: series.id, episode: next.number, method: 'auto_coins' });
-        setToast(next.number);
-        return;
-      }
+      // The active-episode effect spends the coins.
+      const autoCovers = wallet.autoUnlock && wallet.coins >= EPISODE_PRICE && !autoChargedRef.current.has(next.number);
+      if (autoCovers) return;
       setTimeout(() => openUnlock(next.number, 'cliffhanger'), 450);
     },
-    [episodes, isUnlocked, openUnlock, series.id, wallet],
+    [episodes, isUnlocked, openUnlock, series.id, wallet.autoUnlock, wallet.coins],
   );
 
   useEffect(() => {
@@ -153,8 +173,6 @@ export default function Player() {
   usePoolEvents(p1, 1, onPlaying, onSlotEnded, onReady);
   usePoolEvents(p2, 2, onPlaying, onSlotEnded, onReady);
 
-  const activeEpisode = episodes[active];
-  const activeUnlocked = isUnlocked(series.id, activeEpisode.number);
   const { setLastWatched } = wallet;
   useEffect(() => {
     if (activeUnlocked) setLastWatched({ seriesId: series.id, episode: activeEpisode.number });
